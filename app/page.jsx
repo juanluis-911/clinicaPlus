@@ -7,5 +7,5 @@ export default async function RootPage() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (session) redirect('/dashboard')
-  else redirect('/auth/login')
+  else redirect('/landing')
 }
