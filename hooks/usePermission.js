@@ -13,6 +13,7 @@ const PERMISSIONS = {
     'ver_dashboard',
     'ver_configuracion', 'editar_configuracion',
     'gestionar_equipo',
+    'ver_farmacia', 'gestionar_inventario_farmacia', 'usar_pos_farmacia',
   ],
   asistente: [
     'crear_paciente', 'editar_paciente', 'ver_paciente',
@@ -37,6 +38,12 @@ export function usePermission() {
   // Médico asociado: quitar permisos exclusivos del dueño
   if (rol === 'medico' && perfil?.medico_empleador_id) {
     PERMISOS_SOLO_DUENO.forEach(p => allowed.delete(p))
+  }
+
+  // Asistente con atiende_farmacia: acceso al POS y visualización de inventario
+  if (rol === 'asistente' && perfil?.atiende_farmacia) {
+    allowed.add('ver_farmacia')
+    allowed.add('usar_pos_farmacia')
   }
 
   // Aplicar permisos granulares del perfil (para asistentes principalmente)

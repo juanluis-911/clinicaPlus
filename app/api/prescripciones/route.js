@@ -12,7 +12,7 @@ export async function GET(request) {
 
   let query = supabase
     .from('prescripciones')
-    .select('*, pacientes(nombre, apellido)')
+    .select('*, pacientes(nombre, apellido, telefono)')
     .order('fecha', { ascending: false })
 
   if (pacienteId) query = query.eq('paciente_id', pacienteId)
@@ -48,7 +48,7 @@ export async function POST(request) {
     medicamentos,
     instrucciones: instrucciones || null,
     vigencia_dias: vigencia_dias || 30,
-  }).select('*, pacientes(nombre, apellido)').single()
+  }).select('*, pacientes(nombre, apellido, telefono)').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data }, { status: 201 })

@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Save, User, Clock, DollarSign, ShieldCheck,
-  Ban, ChevronRight, CheckCircle, XCircle, Stethoscope,
+  Ban, ChevronRight, CheckCircle, XCircle, Stethoscope, Pill,
 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import Card, { CardBody, CardHeader, CardFooter } from '@/components/ui/Card'
@@ -142,6 +142,7 @@ export default function MiembroDetallePage({ params }) {
 
   // Permisos (solo asistentes)
   const [permisos, setPermisos] = useState({})
+  const [atiendefarmacia, setAtiendefarmacia] = useState(false)
 
   // ── Cargar datos del miembro + lista de doctores ───────────────────────
   useEffect(() => {
@@ -177,6 +178,7 @@ export default function MiembroDetallePage({ params }) {
         })
 
         setPermisos(data.permisos || {})
+        setAtiendefarmacia(data.atiende_farmacia || false)
         setLoading(false)
       })
       .catch(() => { setError('Error al cargar'); setLoading(false) })
@@ -621,6 +623,40 @@ export default function MiembroDetallePage({ params }) {
                 <div className="flex justify-end">
                   <Button type="submit" size="sm" loading={saving}>
                     <Save size={13} /> Guardar permisos
+                  </Button>
+                </div>
+              </CardFooter>
+            </form>
+          </Card>
+        )}
+
+        {/* ── Farmacia (solo asistentes) ── */}
+        {miembro.rol === 'asistente' && (
+          <Card>
+            <CardHeader>
+              <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                <Pill size={15} /> Farmacia
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Permite a este asistente usar el POS de la farmacia.
+              </p>
+            </CardHeader>
+            <form onSubmit={e => { e.preventDefault(); saveSection({ atiende_farmacia: atiendefarmacia }, 'Farmacia guardada') }}>
+              <CardBody>
+                <div className="flex items-center justify-between py-1">
+                  <div>
+                    <p className="text-sm text-gray-800">Atiende farmacia</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Acceso al POS para cobrar productos y consultas.
+                    </p>
+                  </div>
+                  <Toggle value={atiendefarmacia} onChange={setAtiendefarmacia} />
+                </div>
+              </CardBody>
+              <CardFooter>
+                <div className="flex justify-end">
+                  <Button type="submit" size="sm" loading={saving}>
+                    <Save size={13} /> Guardar
                   </Button>
                 </div>
               </CardFooter>

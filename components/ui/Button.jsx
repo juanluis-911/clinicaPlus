@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 
 const variants = {
-  primary:   'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500',
+  primary:   'bg-[var(--brand-600)] text-white hover:bg-[var(--brand-700)] focus-visible:ring-[var(--brand-500)]',
   secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:ring-gray-400',
   danger:    'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
   ghost:     'text-gray-600 hover:bg-gray-100 focus-visible:ring-gray-400',
@@ -28,7 +28,7 @@ export default function Button({
     <button
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center gap-2 rounded-lg font-medium transition-colors',
+        'inline-flex items-center gap-2 rounded-xl font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         variants[variant],

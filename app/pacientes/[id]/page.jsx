@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Edit2, Save, X, FileText, FolderOpen, Calendar, AlertTriangle, Pill, Activity } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, X, FileText, FolderOpen, Calendar, AlertTriangle, Pill, Activity, ClipboardList } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import Card, { CardBody, CardHeader } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -73,6 +73,9 @@ export default function PacienteDetailPage() {
             <ArrowLeft size={14} /> Pacientes
           </Link>
           <div className="flex gap-2">
+            <Link href={`/pacientes/${id}/expediente`}>
+              <Button size="sm"><ClipboardList size={14} /> Expediente</Button>
+            </Link>
             <Link href={`/pacientes/${id}/historial`}>
               <Button variant="secondary" size="sm"><FileText size={14} /> Historial</Button>
             </Link>

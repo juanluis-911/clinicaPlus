@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
       id, nombre_completo, rol, especialidad, cedula_profesional,
       telefono, activo, medico_empleador_id, doctores_asignados,
       horario_hora_inicio, horario_hora_fin, horario_dias, horario_duracion_min,
-      costo_consulta_propio, moneda_propia, permisos, bio, created_at
+      costo_consulta_propio, moneda_propia, permisos, bio, atiende_farmacia, created_at
     `)
     .eq('id', id)
     .eq('medico_empleador_id', check.medicoId)
@@ -58,7 +58,7 @@ export async function PUT(request, { params }) {
     'especialidad', 'cedula_profesional', 'telefono', 'bio',
     'horario_hora_inicio', 'horario_hora_fin', 'horario_dias', 'horario_duracion_min',
     'costo_consulta_propio', 'moneda_propia',
-    'permisos', 'activo', 'doctores_asignados',
+    'permisos', 'activo', 'doctores_asignados', 'atiende_farmacia',
   ]
   const updates = {}
   for (const key of ALLOWED) {

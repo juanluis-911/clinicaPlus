@@ -26,7 +26,9 @@ export function useConfig() {
 
   return {
     config,
-    timezone: config?.zona_horaria || 'America/Mexico_City',
+    timezone:    config?.zona_horaria  || 'America/Mexico_City',
+    paleta:      config?.paleta_color  || 'sky',
+    temaSidebar: config?.tema_sidebar  || 'oscuro',
     loading,
   }
 }
