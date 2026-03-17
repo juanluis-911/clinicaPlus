@@ -1,10 +1,15 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function Modal({ open, onClose, title, children, size = 'md' }) {
+  // Necesario para evitar hidratación SSR con createPortal
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose?.() }
     if (open) document.addEventListener('keydown', handler)
@@ -21,7 +26,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
   const sizes = {
     sm:   'sm:max-w-sm',
@@ -31,7 +36,9 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
     full: 'sm:max-w-full sm:mx-4',
   }
 
-  return (
+  // createPortal escapa el stacking context creado por animaciones CSS (will-change: transform)
+  // en PageTransition, garantizando que el modal siempre se posicione relativo al viewport.
+  return createPortal(
     // Móvil: alineado abajo (bottom sheet). Desktop: centrado.
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
@@ -67,6 +74,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
         )}
         <div className="px-4 py-4 sm:px-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
