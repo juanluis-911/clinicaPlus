@@ -4,6 +4,16 @@ import { useState, useEffect } from 'react'
 
 let cachedConfig = null
 
+/** Limpia el caché al hacer logout o cambio de cuenta */
+export function clearConfigCache() {
+  cachedConfig = null
+}
+
+/** Actualiza el caché tras guardar configuración sin necesidad de re-fetch */
+export function updateConfigCache(data) {
+  cachedConfig = data || {}
+}
+
 export function useConfig() {
   const [config, setConfig] = useState(cachedConfig)
   const [loading, setLoading] = useState(!cachedConfig)

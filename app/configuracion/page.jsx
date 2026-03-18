@@ -5,12 +5,14 @@ import {
   Building2, Clock, Ban, Save, DollarSign, Info, Plus, X, Globe,
   Upload, Trash2, ImageIcon, Palette, Check,
 } from 'lucide-react'
+import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
 import Card, { CardBody, CardHeader } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input, { Textarea } from '@/components/ui/Input'
 import { PageSpinner } from '@/components/ui/Spinner'
 import { usePermission } from '@/hooks/usePermission'
+import { updateConfigCache } from '@/hooks/useConfig'
 import { cn } from '@/lib/utils'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -234,6 +236,7 @@ export default function ConfiguracionPage() {
     const json = await res.json()
     setSaving(false)
     if (!res.ok) { setError(json.error || 'Error al guardar'); return }
+    if (json.data) updateConfigCache(json.data)
     setSuccess(true)
     setTimeout(() => setSuccess(false), 3000)
   }

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { clearConfigCache } from '@/hooks/useConfig'
 
 const UserContext = createContext(null)
 
@@ -33,7 +34,7 @@ export function UserProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) loadPerfil(session.user.id)
-      else { setPerfil(null); setLoading(false) }
+      else { setPerfil(null); setLoading(false); clearConfigCache() }
     })
 
     return () => subscription.unsubscribe()

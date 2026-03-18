@@ -28,7 +28,7 @@ export default function PrescripcionesPage() {
   async function handlePrint(rx) {
     const supabase = createClient()
     const { data: medico } = await supabase.from('perfiles').select('*').eq('id', rx.medico_id).single()
-    const { data: config } = await supabase.from('configuracion_clinica').select('*').eq('medico_id', rx.medico_id).maybeSingle()
+    const { data: config } = await supabase.from('configuracion_clinica').select('*').eq('id', rx.medico_id).maybeSingle()
     const { generarPrescripcionPDF } = await import('@/lib/pdf-prescripcion')
     await generarPrescripcionPDF(rx, rx.pacientes, medico || {}, config || {})
   }
@@ -40,7 +40,7 @@ export default function PrescripcionesPage() {
       const supabase = createClient()
       const { data: { user } }  = await supabase.auth.getUser()
       const { data: medico }    = await supabase.from('perfiles').select('*').eq('id', rx.medico_id).single()
-      const { data: config }    = await supabase.from('configuracion_clinica').select('*').eq('medico_id', rx.medico_id).maybeSingle()
+      const { data: config }    = await supabase.from('configuracion_clinica').select('*').eq('id', rx.medico_id).maybeSingle()
 
       const { generarRecetaPDFBlob } = await import('@/lib/pdf-prescripcion')
       const { blob, nombre } = await generarRecetaPDFBlob(rx, rx.pacientes, medico || {}, config || {})

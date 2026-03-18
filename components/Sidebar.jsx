@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Calendar, Users, FilePlus,
-  ChevronLeft, ChevronRight, Stethoscope, Settings, Building2, UsersRound, Pill,
+  ChevronLeft, ChevronRight, Stethoscope, Settings, Building2, UsersRound, Pill, FileText,
 } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
 import { usePermission } from '@/hooks/usePermission'
@@ -13,13 +13,14 @@ import { useConfig } from '@/hooks/useConfig'
 import { cn, getInitials } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',            label: 'Panel de Control', icon: LayoutDashboard },
-  { href: '/farmacia',             label: 'Farmacia',         icon: Pill,        requiredAction: 'ver_farmacia' },
-  { href: '/agenda',               label: 'Agenda',           icon: Calendar },
-  { href: '/pacientes',            label: 'Pacientes',        icon: Users },
-  { href: '/prescripciones',       label: 'Prescripciones',   icon: FilePlus,    requiredAction: 'ver_prescripcion' },
-  { href: '/configuracion',        label: 'Mi Clínica',       icon: Building2,   requiredAction: 'ver_configuracion' },
-  { href: '/configuracion/equipo', label: 'Equipo',           icon: UsersRound,  requiredAction: 'gestionar_equipo' },
+  { href: '/dashboard',                label: 'Panel de Control',  icon: LayoutDashboard },
+  { href: '/farmacia',                 label: 'Farmacia',          icon: Pill,        requiredAction: 'ver_farmacia' },
+  { href: '/agenda',                   label: 'Agenda',            icon: Calendar },
+  { href: '/pacientes',                label: 'Pacientes',         icon: Users },
+  { href: '/prescripciones',           label: 'Prescripciones',    icon: FilePlus,    requiredAction: 'ver_prescripcion' },
+  { href: '/configuracion/receta',     label: 'Formato de Receta', icon: FileText,    requiredAction: 'crear_prescripcion' },
+  { href: '/configuracion',            label: 'Mi Clínica',        icon: Building2,   requiredAction: 'ver_configuracion' },
+  { href: '/configuracion/equipo',     label: 'Equipo',            icon: UsersRound,  requiredAction: 'gestionar_equipo' },
 ]
 
 export default function Sidebar({ mobileOpen = false, onMobileClose }) {
@@ -71,7 +72,14 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }) {
         {/* Nav */}
         <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
           {items.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/')
+            // Un item está activo si el pathname coincide exactamente,
+            // o si empieza con href+'/' pero ningún otro item más específico también hace match.
+            const exactMatch = pathname === href
+            const prefixMatch = pathname.startsWith(href + '/')
+            const claimedByChild = prefixMatch && items.some(
+              i => i.href !== href && i.href.startsWith(href) && (pathname === i.href || pathname.startsWith(i.href + '/'))
+            )
+            const active = exactMatch || (prefixMatch && !claimedByChild)
             return (
               <Link
                 key={href}
