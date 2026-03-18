@@ -450,8 +450,9 @@ export default function RecetaFormatoPage() {
                   <p className="text-sm font-medium text-gray-700 mb-2">Tamaño de papel</p>
                   <div className="flex gap-3">
                     {[
-                      { value: 'letter', label: 'Carta', sub: '21.6 × 27.9 cm' },
-                      { value: 'a4',     label: 'A4',    sub: '21 × 29.7 cm' },
+                      { value: 'letter',      label: 'Carta',       sub: '21.6 × 27.9 cm' },
+                      { value: 'a4',          label: 'A4',          sub: '21 × 29.7 cm' },
+                      { value: 'half-letter', label: 'Media Carta', sub: '14 × 21.6 cm' },
                     ].map(op => {
                       const active = (fmt.tamano_papel || 'letter') === op.value
                       return (
