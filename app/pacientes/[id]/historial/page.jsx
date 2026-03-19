@@ -85,7 +85,7 @@ export default function HistorialPage() {
     <AppLayout title={`Historial — ${paciente?.nombre} ${paciente?.apellido}`}>
       <div className="max-w-3xl mx-auto space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <Link href={`/pacientes/${id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+          <Link href={`/pacientes/${id}/expediente`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
             <ArrowLeft size={14} /> {paciente?.nombre} {paciente?.apellido}
           </Link>
           <PermissionGate action="crear_consulta">

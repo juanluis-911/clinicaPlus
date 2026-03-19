@@ -97,6 +97,11 @@ export default function ExpedienteClinico() {
   const [editingConsulta, setEditingConsulta] = useState(null) // consulta objeto o null
   const [savingEdit, setSavingEdit]           = useState(false)
 
+  // Editar datos del paciente
+  const [editingPaciente, setEditingPaciente] = useState(false)
+  const [formPaciente, setFormPaciente]       = useState({})
+  const [savingPaciente, setSavingPaciente]   = useState(false)
+
   // Modal signos vitales
   const [modalVitales, setModalVitales]   = useState(false)
   const [formNuevosV, setFormNuevosV]     = useState({ ...EMPTY_VITALES, fecha: new Date().toISOString().slice(0, 10) })
@@ -121,6 +126,7 @@ export default function ExpedienteClinico() {
       supabase.from('prescripciones').select('*').eq('paciente_id', id).order('fecha', { ascending: false }),
     ])
     setPaciente(p)
+    setFormPaciente(p || {})
     setConsultas(cons || [])
     setVitales(sv || [])
     setAntecedentes(ant)
@@ -168,6 +174,21 @@ export default function ExpedienteClinico() {
     if (res.ok) {
       setEditingConsulta(null)
       loadAll()
+    }
+  }
+
+  async function handleSavePaciente() {
+    setSavingPaciente(true)
+    const res = await fetch('/api/pacientes', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...formPaciente }),
+    })
+    setSavingPaciente(false)
+    if (res.ok) {
+      const { data } = await res.json()
+      setPaciente(data)
+      setEditingPaciente(false)
     }
   }
 
@@ -236,9 +257,10 @@ export default function ExpedienteClinico() {
         paciente, antecedentes, consultas, vitales, recetas, documentos, medico, config,
       })
       const file = new File([blob], nombre, { type: 'application/pdf' })
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
-      // ── Opción 1: Web Share API con archivo (share sheet nativo) ───────
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // ── Opción 1: Web Share API — solo en móvil (en desktop falla con diálogo del SO) ───
+      if (isMobile && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: `Expediente — ${pacienteNombre}` })
           return
@@ -265,7 +287,6 @@ export default function ExpedienteClinico() {
             `📋 *Expediente clínico — ${pacienteNombre}*\n\n` +
             `Descarga el PDF aquí (válido por 24 horas):\n${signed.signedUrl}`
           )
-          const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
           if (isMobile) {
             // Deeplink que abre la app de WhatsApp instalada
             window.location.href = `whatsapp://send?text=${msg}`
@@ -310,7 +331,7 @@ export default function ExpedienteClinico() {
         <div className="flex items-start justify-between mb-4 gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Link
-              href={`/pacientes/${id}`}
+              href="/pacientes"
               className="w-8 h-8 rounded-xl flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 flex-shrink-0"
             >
               <ArrowLeft size={15} />
@@ -439,6 +460,12 @@ export default function ExpedienteClinico() {
                 consultas={consultas}
                 lastVital={lastVital}
                 imc={imc}
+                editingPaciente={editingPaciente}
+                setEditingPaciente={setEditingPaciente}
+                formPaciente={formPaciente}
+                setFormPaciente={setFormPaciente}
+                savingPaciente={savingPaciente}
+                onSavePaciente={handleSavePaciente}
               />
             )}
             {seccion === 'antecedentes' && (
@@ -623,10 +650,100 @@ export default function ExpedienteClinico() {
 
 // ── Sección: Resumen ──────────────────────────────────────────────────────────
 
-function SeccionResumen({ paciente, antecedentes, consultas, lastVital, imc }) {
+function SeccionResumen({ paciente, antecedentes, consultas, lastVital, imc,
+  editingPaciente, setEditingPaciente, formPaciente, setFormPaciente, savingPaciente, onSavePaciente,
+}) {
   const tieneAlergias = antecedentes?.alergias_medicamentos || paciente.alergias
+  const setP = field => e => setFormPaciente(p => ({ ...p, [field]: e.target.value }))
+
   return (
     <div className="space-y-4">
+
+      {/* ── Datos del paciente ──────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+              <User size={14} /> Datos del paciente
+            </h3>
+            {!editingPaciente ? (
+              <button
+                onClick={() => setEditingPaciente(true)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1 rounded-lg hover:bg-gray-100"
+              >
+                <Edit2 size={12} /> Editar
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setEditingPaciente(false); setFormPaciente(paciente) }}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <X size={12} /> Cancelar
+                </button>
+                <button
+                  onClick={onSavePaciente}
+                  disabled={savingPaciente}
+                  className="flex items-center gap-1 text-xs font-medium text-white px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--brand-600)' }}
+                >
+                  {savingPaciente
+                    ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Save size={12} />}
+                  Guardar
+                </button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardBody>
+          {editingPaciente ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Nombre"   value={formPaciente.nombre   || ''} onChange={setP('nombre')} />
+                <Input label="Apellido" value={formPaciente.apellido || ''} onChange={setP('apellido')} />
+              </div>
+              <Input label="Fecha de nacimiento" type="date" value={formPaciente.fecha_nacimiento || ''} onChange={setP('fecha_nacimiento')} />
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Teléfono" value={formPaciente.telefono || ''} onChange={setP('telefono')} />
+                <Input label="Email"    type="email" value={formPaciente.email || ''} onChange={setP('email')} />
+              </div>
+              <Input label="Dirección" value={formPaciente.direccion || ''} onChange={setP('direccion')} />
+            </div>
+          ) : (
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+              {paciente.telefono && (
+                <div>
+                  <dt className="text-xs text-gray-400">Teléfono</dt>
+                  <dd className="text-sm text-gray-700 mt-0.5">{paciente.telefono}</dd>
+                </div>
+              )}
+              {paciente.email && (
+                <div>
+                  <dt className="text-xs text-gray-400">Email</dt>
+                  <dd className="text-sm text-gray-700 mt-0.5 truncate">{paciente.email}</dd>
+                </div>
+              )}
+              {paciente.fecha_nacimiento && (
+                <div>
+                  <dt className="text-xs text-gray-400">Fecha de nacimiento</dt>
+                  <dd className="text-sm text-gray-700 mt-0.5">{formatDate(paciente.fecha_nacimiento)}</dd>
+                </div>
+              )}
+              {paciente.direccion && (
+                <div className="col-span-2">
+                  <dt className="text-xs text-gray-400">Dirección</dt>
+                  <dd className="text-sm text-gray-700 mt-0.5">{paciente.direccion}</dd>
+                </div>
+              )}
+              {!paciente.telefono && !paciente.email && !paciente.fecha_nacimiento && !paciente.direccion && (
+                <p className="text-xs text-gray-400 col-span-2">Sin datos de contacto registrados</p>
+              )}
+            </dl>
+          )}
+        </CardBody>
+      </Card>
+
       {tieneAlergias && (
         <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
           <AlertTriangle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
