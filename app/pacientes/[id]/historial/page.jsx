@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, ChevronDown, ChevronRight, Stethoscope, Edit2 } from 'lucide-react'
+import { ArrowLeft, Plus, ChevronDown, ChevronRight, Stethoscope, Edit2, FileText } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import Card, { CardBody, CardHeader } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -130,7 +130,7 @@ export default function HistorialPage() {
                     <ConsultaField label="Plan de tratamiento" value={c.plan_tratamiento} />
                     <ConsultaField label="Notas" value={c.notas} />
                     <PermissionGate action="crear_consulta">
-                      <div className="pt-3 border-t border-gray-100 flex justify-end">
+                      <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
                         <button
                           type="button"
                           onClick={e => { e.stopPropagation(); setEditingConsulta({ ...c }) }}
@@ -138,6 +138,13 @@ export default function HistorialPage() {
                         >
                           <Edit2 size={12} /> Editar consulta
                         </button>
+                        <Link
+                          href={`/prescripciones/nueva?paciente_id=${id}&consulta_id=${c.id}`}
+                          onClick={e => e.stopPropagation()}
+                          className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors px-3 py-1.5 rounded-lg border border-emerald-200"
+                        >
+                          <FileText size={12} /> Crear receta
+                        </Link>
                       </div>
                     </PermissionGate>
                   </div>

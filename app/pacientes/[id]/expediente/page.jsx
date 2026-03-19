@@ -489,6 +489,7 @@ export default function ExpedienteClinico() {
                 setExpandedId={setExpandedId}
                 onNew={() => setModalConsulta(true)}
                 onEdit={c => setEditingConsulta({ ...c })}
+                pacienteId={id}
               />
             )}
             {seccion === 'vitales' && (
@@ -1059,7 +1060,7 @@ function SeccionAntecedentes({ editing, setEditing, form, setA, setACh, setFormA
 
 // ── Sección: Consultas ────────────────────────────────────────────────────────
 
-function SeccionConsultas({ consultas, vitales, expandedId, setExpandedId, onNew, onEdit }) {
+function SeccionConsultas({ consultas, vitales, expandedId, setExpandedId, onNew, onEdit, pacienteId }) {
   const vitalesPorConsulta = {}
   vitales.forEach(v => { if (v.consulta_id) vitalesPorConsulta[v.consulta_id] = v })
 
@@ -1148,7 +1149,7 @@ function SeccionConsultas({ consultas, vitales, expandedId, setExpandedId, onNew
                 <ConsultaCampo label="Plan de tratamiento" value={c.plan_tratamiento} />
                 <ConsultaCampo label="Notas adicionales"   value={c.notas} />
                 <PermissionGate action="crear_consulta">
-                  <div className="pt-3 border-t border-gray-100 flex justify-end">
+                  <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
                     <button
                       type="button"
                       onClick={e => { e.stopPropagation(); onEdit(c) }}
@@ -1156,6 +1157,13 @@ function SeccionConsultas({ consultas, vitales, expandedId, setExpandedId, onNew
                     >
                       <Edit2 size={12} /> Editar consulta
                     </button>
+                    <Link
+                      href={`/prescripciones/nueva?paciente_id=${pacienteId}&consulta_id=${c.id}`}
+                      onClick={e => e.stopPropagation()}
+                      className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors px-3 py-1.5 rounded-lg border border-emerald-200"
+                    >
+                      <FileText size={12} /> Crear receta
+                    </Link>
                   </div>
                 </PermissionGate>
               </div>

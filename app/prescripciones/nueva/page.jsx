@@ -56,6 +56,7 @@ function NuevaPrescripcionContent() {
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [form, setForm] = useState({
     paciente_id: searchParams.get('paciente_id') || '',
+    consulta_id: searchParams.get('consulta_id') || null,
     fecha: new Date().toISOString().slice(0, 10),
     instrucciones: '',
     vigencia_dias: '30',
@@ -70,6 +71,26 @@ function NuevaPrescripcionContent() {
       .then(r => r.json())
       .then(({ data }) => { if (data) setSelectedPatient(data) })
       .catch(() => {})
+  }, [])
+
+  // Pre-llenar instrucciones con el plan_tratamiento de la consulta
+  useEffect(() => {
+    const consultaId = searchParams.get('consulta_id')
+    if (!consultaId) return
+    import('@/lib/supabase/client').then(({ createClient }) => {
+      createClient()
+        .from('consultas')
+        .select('plan_tratamiento, diagnostico')
+        .eq('id', consultaId)
+        .single()
+        .then(({ data }) => {
+          if (!data) return
+          setForm(f => ({
+            ...f,
+            instrucciones: data.plan_tratamiento || '',
+          }))
+        })
+    })
   }, [])
 
   function setForm2(field) { return e => setForm(f => ({ ...f, [field]: e.target.value })) }
