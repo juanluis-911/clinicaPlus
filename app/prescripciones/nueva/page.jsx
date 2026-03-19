@@ -80,14 +80,19 @@ function NuevaPrescripcionContent() {
     import('@/lib/supabase/client').then(({ createClient }) => {
       createClient()
         .from('consultas')
-        .select('plan_tratamiento, diagnostico')
+        .select('exploracion_fisica, diagnostico, plan_tratamiento, notas')
         .eq('id', consultaId)
         .single()
         .then(({ data }) => {
           if (!data) return
+          const partes = []
+          if (data.exploracion_fisica) partes.push(`Exploración física:\n${data.exploracion_fisica}`)
+          if (data.diagnostico)        partes.push(`Diagnóstico:\n${data.diagnostico}`)
+          if (data.plan_tratamiento)   partes.push(`Plan de tratamiento:\n${data.plan_tratamiento}`)
+          if (data.notas)              partes.push(`Notas adicionales:\n${data.notas}`)
           setForm(f => ({
             ...f,
-            instrucciones: data.plan_tratamiento || '',
+            instrucciones: partes.join('\n\n'),
           }))
         })
     })
