@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, ChevronDown, ChevronRight, Stethoscope } from 'lucide-react'
+import { ArrowLeft, Plus, ChevronDown, ChevronRight, Stethoscope, Edit2 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import Card, { CardBody, CardHeader } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -27,6 +27,10 @@ export default function HistorialPage() {
     motivo_consulta: '', exploracion_fisica: '',
     diagnostico: '', plan_tratamiento: '', notas: '',
   })
+
+  // Editar consulta
+  const [editingConsulta, setEditingConsulta] = useState(null)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   async function loadData() {
     const supabase = createClient()
@@ -56,6 +60,21 @@ export default function HistorialPage() {
     if (!error) {
       setModalOpen(false)
       setForm({ fecha: new Date().toISOString().slice(0, 10), motivo_consulta: '', exploracion_fisica: '', diagnostico: '', plan_tratamiento: '', notas: '' })
+      loadData()
+    }
+  }
+
+  async function handleUpdateConsulta(e) {
+    e.preventDefault()
+    setSavingEdit(true)
+    const res = await fetch('/api/consultas', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editingConsulta),
+    })
+    setSavingEdit(false)
+    if (res.ok) {
+      setEditingConsulta(null)
       loadData()
     }
   }
@@ -110,6 +129,17 @@ export default function HistorialPage() {
                     <ConsultaField label="Diagnóstico" value={c.diagnostico} highlight />
                     <ConsultaField label="Plan de tratamiento" value={c.plan_tratamiento} />
                     <ConsultaField label="Notas" value={c.notas} />
+                    <PermissionGate action="crear_consulta">
+                      <div className="pt-3 border-t border-gray-100 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setEditingConsulta({ ...c }) }}
+                          className="flex items-center gap-1.5 text-xs font-medium text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors px-3 py-1.5 rounded-lg border border-sky-200"
+                        >
+                          <Edit2 size={12} /> Editar consulta
+                        </button>
+                      </div>
+                    </PermissionGate>
                   </div>
                 )}
               </Card>
@@ -131,6 +161,41 @@ export default function HistorialPage() {
             <Button type="submit" loading={saving}>Guardar consulta</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* ── Modal: Editar consulta ───────────────────────────────────────── */}
+      <Modal open={!!editingConsulta} onClose={() => setEditingConsulta(null)} title="Editar consulta" size="lg">
+        {editingConsulta && (
+          <form onSubmit={handleUpdateConsulta} className="space-y-4">
+            <Input label="Fecha" type="date" required
+              value={editingConsulta.fecha}
+              onChange={e => setEditingConsulta(p => ({ ...p, fecha: e.target.value }))} />
+            <Textarea label="Motivo de consulta" required
+              value={editingConsulta.motivo_consulta || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, motivo_consulta: e.target.value }))}
+              placeholder="Descripción del motivo de la visita..." />
+            <Textarea label="Exploración física"
+              value={editingConsulta.exploracion_fisica || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, exploracion_fisica: e.target.value }))}
+              placeholder="Signos vitales, hallazgos..." />
+            <Textarea label="Diagnóstico"
+              value={editingConsulta.diagnostico || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, diagnostico: e.target.value }))}
+              placeholder="CIE-10, descripción..." />
+            <Textarea label="Plan de tratamiento"
+              value={editingConsulta.plan_tratamiento || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, plan_tratamiento: e.target.value }))}
+              placeholder="Medicamentos, indicaciones, seguimiento..." />
+            <Textarea label="Notas adicionales"
+              value={editingConsulta.notas || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, notas: e.target.value }))}
+              placeholder="Observaciones relevantes..." />
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <Button variant="secondary" type="button" onClick={() => setEditingConsulta(null)}>Cancelar</Button>
+              <Button type="submit" loading={savingEdit}>Guardar cambios</Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </AppLayout>
   )

@@ -93,6 +93,10 @@ export default function ExpedienteClinico() {
   const [formAnt, setFormAnt]       = useState(EMPTY_ANT)
   const [savingAnt, setSavingAnt]   = useState(false)
 
+  // Modal editar consulta
+  const [editingConsulta, setEditingConsulta] = useState(null) // consulta objeto o null
+  const [savingEdit, setSavingEdit]           = useState(false)
+
   // Modal signos vitales
   const [modalVitales, setModalVitales]   = useState(false)
   const [formNuevosV, setFormNuevosV]     = useState({ ...EMPTY_VITALES, fecha: new Date().toISOString().slice(0, 10) })
@@ -148,6 +152,21 @@ export default function ExpedienteClinico() {
       setModalConsulta(false)
       setFormConsulta(EMPTY_CONSULTA)
       setFormVitalesC(EMPTY_VITALES)
+      loadAll()
+    }
+  }
+
+  async function handleUpdateConsulta(e) {
+    e.preventDefault()
+    setSavingEdit(true)
+    const res = await fetch('/api/consultas', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editingConsulta),
+    })
+    setSavingEdit(false)
+    if (res.ok) {
+      setEditingConsulta(null)
       loadAll()
     }
   }
@@ -442,6 +461,7 @@ export default function ExpedienteClinico() {
                 expandedId={expandedId}
                 setExpandedId={setExpandedId}
                 onNew={() => setModalConsulta(true)}
+                onEdit={c => setEditingConsulta({ ...c })}
               />
             )}
             {seccion === 'vitales' && (
@@ -513,6 +533,66 @@ export default function ExpedienteClinico() {
             <Button type="submit" loading={savingConsulta}>Guardar consulta</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* ── Modal: Editar consulta ───────────────────────────────────────── */}
+      <Modal open={!!editingConsulta} onClose={() => setEditingConsulta(null)} title="Editar consulta" size="xl">
+        {editingConsulta && (
+          <form onSubmit={handleUpdateConsulta} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input label="Fecha" type="date" required
+                value={editingConsulta.fecha}
+                onChange={e => setEditingConsulta(p => ({ ...p, fecha: e.target.value }))} />
+              <FieldSelect
+                label="Tipo de consulta"
+                value={editingConsulta.tipo_consulta}
+                onChange={e => setEditingConsulta(p => ({ ...p, tipo_consulta: e.target.value }))}
+                options={TIPOS_CONSULTA.map(t => [t.value, t.label])}
+              />
+            </div>
+
+            <Textarea
+              label="Motivo de consulta" required
+              value={editingConsulta.motivo_consulta || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, motivo_consulta: e.target.value }))}
+              rows={2} placeholder="Motivo por el que el paciente acude a consulta..."
+            />
+
+            <Textarea label="Exploración física"
+              value={editingConsulta.exploracion_fisica || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, exploracion_fisica: e.target.value }))}
+              rows={3} placeholder="Hallazgos a la exploración..." />
+
+            <Textarea label="Diagnóstico"
+              value={editingConsulta.diagnostico || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, diagnostico: e.target.value }))}
+              rows={2} placeholder="Diagnóstico principal y secundarios..." />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 -mt-2">
+              <Input label="Código CIE-10"
+                value={editingConsulta.cie10_codigo || ''}
+                onChange={e => setEditingConsulta(p => ({ ...p, cie10_codigo: e.target.value }))}
+                placeholder="Ej. J06.9" />
+              <Input label="Descripción CIE-10"
+                value={editingConsulta.cie10_descripcion || ''}
+                onChange={e => setEditingConsulta(p => ({ ...p, cie10_descripcion: e.target.value }))}
+                placeholder="Ej. IRA de vías superiores" />
+            </div>
+
+            <Textarea label="Plan de tratamiento"
+              value={editingConsulta.plan_tratamiento || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, plan_tratamiento: e.target.value }))}
+              rows={3} placeholder="Medicamentos, indicaciones..." />
+            <Textarea label="Notas adicionales"
+              value={editingConsulta.notas || ''}
+              onChange={e => setEditingConsulta(p => ({ ...p, notas: e.target.value }))}
+              rows={2} />
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <Button variant="secondary" type="button" onClick={() => setEditingConsulta(null)}>Cancelar</Button>
+              <Button type="submit" loading={savingEdit}>Guardar cambios</Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* ── Modal: Signos vitales ────────────────────────────────────────── */}
@@ -862,7 +942,7 @@ function SeccionAntecedentes({ editing, setEditing, form, setA, setACh, setFormA
 
 // ── Sección: Consultas ────────────────────────────────────────────────────────
 
-function SeccionConsultas({ consultas, vitales, expandedId, setExpandedId, onNew }) {
+function SeccionConsultas({ consultas, vitales, expandedId, setExpandedId, onNew, onEdit }) {
   const vitalesPorConsulta = {}
   vitales.forEach(v => { if (v.consulta_id) vitalesPorConsulta[v.consulta_id] = v })
 
@@ -950,6 +1030,17 @@ function SeccionConsultas({ consultas, vitales, expandedId, setExpandedId, onNew
                 )}
                 <ConsultaCampo label="Plan de tratamiento" value={c.plan_tratamiento} />
                 <ConsultaCampo label="Notas adicionales"   value={c.notas} />
+                <PermissionGate action="crear_consulta">
+                  <div className="pt-3 border-t border-gray-100 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); onEdit(c) }}
+                      className="flex items-center gap-1.5 text-xs font-medium text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors px-3 py-1.5 rounded-lg border border-sky-200"
+                    >
+                      <Edit2 size={12} /> Editar consulta
+                    </button>
+                  </div>
+                </PermissionGate>
               </div>
             )}
           </Card>
