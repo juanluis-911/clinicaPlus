@@ -36,8 +36,8 @@ export async function POST(request) {
   const body = await request.json()
   const { paciente_id, consulta_id, fecha, medicamentos, instrucciones, vigencia_dias } = body
 
-  if (!paciente_id || !medicamentos || medicamentos.length === 0) {
-    return NextResponse.json({ error: 'paciente_id y medicamentos son obligatorios' }, { status: 400 })
+  if (!paciente_id) {
+    return NextResponse.json({ error: 'paciente_id es obligatorio' }, { status: 400 })
   }
 
   const { data, error } = await supabase.from('prescripciones').insert({
@@ -45,7 +45,7 @@ export async function POST(request) {
     consulta_id: consulta_id || null,
     medico_id: user.id,
     fecha: fecha || new Date().toISOString().slice(0, 10),
-    medicamentos,
+    medicamentos: medicamentos || [],
     instrucciones: instrucciones || null,
     vigencia_dias: vigencia_dias || 30,
   }).select('*, pacientes(nombre, apellido, telefono)').single()

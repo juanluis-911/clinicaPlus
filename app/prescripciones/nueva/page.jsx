@@ -80,19 +80,14 @@ function NuevaPrescripcionContent() {
     import('@/lib/supabase/client').then(({ createClient }) => {
       createClient()
         .from('consultas')
-        .select('exploracion_fisica, diagnostico, plan_tratamiento, notas')
+        .select('diagnostico')
         .eq('id', consultaId)
         .single()
         .then(({ data }) => {
           if (!data) return
-          const partes = []
-          if (data.exploracion_fisica) partes.push(`Exploración física:\n${data.exploracion_fisica}`)
-          if (data.diagnostico)        partes.push(`Diagnóstico:\n${data.diagnostico}`)
-          if (data.plan_tratamiento)   partes.push(`Plan de tratamiento:\n${data.plan_tratamiento}`)
-          if (data.notas)              partes.push(`Notas adicionales:\n${data.notas}`)
           setForm(f => ({
             ...f,
-            instrucciones: partes.join('\n\n'),
+            instrucciones: data.diagnostico || '',
           }))
         })
     })
@@ -106,14 +101,16 @@ function NuevaPrescripcionContent() {
   async function handleSave(e) {
     e.preventDefault()
     if (!form.paciente_id) { setError('Selecciona un paciente'); return }
-    if (medicamentos.some(m => !m.nombre)) { setError('Todos los medicamentos deben tener nombre'); return }
+    const desdeConsulta = !!searchParams.get('consulta_id')
+    const medsValidos = medicamentos.filter(m => m.nombre.trim())
+    if (!desdeConsulta && medsValidos.length === 0) { setError('Agrega al menos un medicamento'); return }
     setError('')
     setSaving(true)
 
     const res = await fetch('/api/prescripciones', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, vigencia_dias: parseInt(form.vigencia_dias), medicamentos }),
+      body: JSON.stringify({ ...form, vigencia_dias: parseInt(form.vigencia_dias), medicamentos: medsValidos }),
     })
     const json = await res.json()
     setSaving(false)
@@ -259,7 +256,8 @@ function NuevaPrescripcionContent() {
                 placeholder="Instrucciones adicionales para el paciente, dieta, actividad física..."
                 value={form.instrucciones}
                 onChange={setForm2('instrucciones')}
-                rows={3}
+                rows={6}
+                className="text-xs"
               />
             </CardBody>
             <CardFooter>
