@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Calendar, Users, FilePlus,
-  ChevronLeft, ChevronRight, Stethoscope, Settings, Building2, UsersRound, Pill, FileText,
+  ChevronLeft, ChevronRight, Stethoscope, Settings, Building2, UsersRound, Pill, FileText, Network,
 } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
 import { usePermission } from '@/hooks/usePermission'
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/configuracion/receta',     label: 'Formato de Receta', icon: FileText,    requiredAction: 'crear_prescripcion' },
   { href: '/configuracion',            label: 'Mi Clínica',        icon: Building2,   requiredAction: 'ver_configuracion' },
   { href: '/configuracion/equipo',     label: 'Equipo',            icon: UsersRound,  requiredAction: 'gestionar_equipo' },
+  { href: '/red',                      label: 'Mi Red',            icon: Network,     requiredAction: 'gestionar_equipo' },
 ]
 
 export default function Sidebar({ mobileOpen = false, onMobileClose }) {

@@ -185,3 +185,10 @@ body {
   transition-duration: 150ms;
   transition-timing-function: ease;
 }
+
+/* ── Shimmer del botón "Invitar colega" en el TopBar ────────────────────────── */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  60%  { transform: translateX(200%); }
+  100% { transform: translateX(200%); }
+}

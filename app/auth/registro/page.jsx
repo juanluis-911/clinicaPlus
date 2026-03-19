@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   HeartPulse, Eye, EyeOff, ArrowRight, CheckCircle,
-  Stethoscope, Building2, UserCheck,
+  Stethoscope, Building2, UserCheck, Network,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -40,6 +40,9 @@ function RegistroForm() {
   const [invite,         setInvite]         = useState(null)
   const [inviteCodigo,   setInviteCodigo]   = useState('')
   const [inviteLoading,  setInviteLoading]  = useState(false)
+  // Referido (invitación de colega a la red, independiente)
+  const [referido,       setReferido]       = useState(null)   // { medicoNombre, medicoEspecialidad }
+  const [refCodigo,      setRefCodigo]      = useState('')
   const [error,          setError]          = useState('')
   const [loading,        setLoading]        = useState(false)
 
@@ -47,7 +50,7 @@ function RegistroForm() {
   const searchParams = useSearchParams()
   const supabase     = createClient()
 
-  /* Validar invite del URL */
+  /* Validar invite de equipo (?invite=) */
   useEffect(() => {
     const codigo = searchParams.get('invite')
     if (!codigo) return
@@ -70,6 +73,27 @@ function RegistroForm() {
         }
       })
       .catch(() => setError('No se pudo validar la invitación.'))
+      .finally(() => setInviteLoading(false))
+  }, [])
+
+  /* Validar referido de colega (?ref=) */
+  useEffect(() => {
+    const codigo = searchParams.get('ref')
+    if (!codigo) return
+    setRefCodigo(codigo)
+    setInviteLoading(true)
+    fetch(`/api/referidos/validate?codigo=${codigo}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.valid) {
+          setReferido(data)
+          // El médico referido siempre se registra como médico independiente
+          setForm(f => ({ ...f, rol: 'medico' }))
+        } else {
+          setError(data.error || 'Link de invitación inválido.')
+        }
+      })
+      .catch(() => setError('No se pudo validar el link de invitación.'))
       .finally(() => setInviteLoading(false))
   }, [])
 
@@ -112,6 +136,14 @@ function RegistroForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codigo: inviteCodigo }),
+      })
+    }
+
+    if (refCodigo && data.user) {
+      await fetch('/api/referidos/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo: refCodigo, medicoReferidoId: data.user.id }),
       })
     }
 
@@ -199,7 +231,7 @@ function RegistroForm() {
             </div>
           )}
 
-          {/* Banner invite válida */}
+          {/* Banner invite de equipo válida */}
           {invite && (
             <div className="mb-5 flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5">
               <CheckCircle size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -214,10 +246,27 @@ function RegistroForm() {
             </div>
           )}
 
+          {/* Banner referido de colega válido */}
+          {referido && (
+            <div className="mb-5 flex items-start gap-3 bg-sky-50 border border-sky-200 rounded-xl px-4 py-3.5">
+              <Network size={18} className="text-sky-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-sky-800">
+                <p className="font-semibold mb-0.5">
+                  {referido.medicoNombre} te invita a unirte a MediFlow
+                </p>
+                <p className="text-xs text-sky-700">
+                  Te registrarás como <strong>médico independiente</strong> con tu propia clínica.
+                  {referido.medicoEspecialidad && ` ${referido.medicoNombre} es ${referido.medicoEspecialidad}.`}
+                  {' '}Cuando la plataforma tenga suscripción, ambos recibirán beneficios exclusivos.
+                </p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
 
             {/* Rol */}
-            {!invite ? (
+            {!invite && !referido ? (
               <Field label="Soy…">
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -238,6 +287,13 @@ function RegistroForm() {
                       {label}
                     </button>
                   ))}
+                </div>
+              </Field>
+            ) : referido ? (
+              <Field label="Rol">
+                <div className="h-11 px-4 rounded-xl border border-sky-200 bg-sky-50 text-sm font-semibold text-sky-800 flex items-center gap-2">
+                  <Network size={15} />
+                  Médico independiente
                 </div>
               </Field>
             ) : (
