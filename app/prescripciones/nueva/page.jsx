@@ -11,6 +11,8 @@ import Button from '@/components/ui/Button'
 import Input, { Textarea } from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import PatientCombobox from '@/components/ui/PatientCombobox'
+import MedicamentosCombobox from '@/components/ui/MedicamentosCombobox'
+import { calcAge } from '@/lib/utils'
 
 const FORMAS = [
   { value: 'tableta', label: 'Tableta' },
@@ -40,6 +42,72 @@ function emptyMed() {
   return { nombre: '', concentracion: '', forma: 'tableta', dosis: '', frecuencia: 'cada 8 horas', duracion: '', indicaciones: '' }
 }
 
+// Formatea mg como string: "125 mg" o "125.5 mg"
+function formatDosis(mg) {
+  const rounded = Math.round(mg * 10) / 10
+  return Number.isInteger(rounded) ? `${rounded} mg` : `${rounded.toFixed(1)} mg`
+}
+
+// ¿El mg/kg del catálogo es dosis DIARIA (necesita dividirse)?
+// Indicador: la nota contiene "dividida" → ej: "dosis/día dividida c/8h"
+// Si no tiene "dividida" → el mg/kg ya es POR TOMA (paracetamol, ibuprofeno, etc.)
+function isDailyDose(nota = '') {
+  return nota.toLowerCase().includes('dividida')
+}
+
+// Tomas por día (solo relevante si isDailyDose)
+function dosesPerDay(nota = '') {
+  const n = nota.toLowerCase()
+  if (n.includes('c/4h'))  return 6
+  if (n.includes('c/6h'))  return 4
+  if (n.includes('c/8h'))  return 3
+  if (n.includes('c/12h')) return 2
+  return 1
+}
+
+// Convierte mg a unidades amigables según concentración y forma
+function mgToUnits(mg, concentracion = '', forma = '') {
+  const conc  = concentracion.trim()
+  const forma_ = forma.toLowerCase()
+
+  // Líquido: "250 mg/5 ml" o "100 mg/ml"
+  const liqMatch = conc.match(/(\d+(?:[.,]\d+)?)\s*mg\s*\/\s*(\d+(?:[.,]\d+)?)?\s*ml/i)
+  if (liqMatch) {
+    const mgPerMl = parseFloat(liqMatch[1]) / (parseFloat(liqMatch[2] || '1') || 1)
+    const ml = Math.round((mg / mgPerMl) * 10) / 10
+    return `${Number.isInteger(ml) ? ml : ml.toFixed(1)} ml`
+  }
+
+  // Sólido: "500 mg"
+  const solidMatch = conc.match(/^(\d+(?:[.,]\d+)?)\s*mg$/i)
+  if (solidMatch) {
+    const mgPerUnit = parseFloat(solidMatch[1])
+    const units     = Math.round((mg / mgPerUnit) * 10) / 10
+    const unitsStr  = Number.isInteger(units) ? String(units) : units.toFixed(1)
+    const label     = forma_.includes('cáps') || forma_.includes('caps') ? 'cápsula'
+                    : forma_.includes('table') ? 'tableta'
+                    : forma_ || 'tableta'
+    const plural    = parseFloat(unitsStr) !== 1
+                    ? (label.endsWith('a') ? label.slice(0, -1) + 'as' : label + 's')
+                    : label
+    return `${unitsStr} ${parseFloat(unitsStr) === 1 ? label : plural}`
+  }
+
+  return formatDosis(mg)
+}
+
+// Calcula la dosis POR TOMA en unidades amigables para el paciente
+function calcDosisPorToma(item, pesoKg) {
+  if (item.mg_kg_min == null || !pesoKg) return null
+
+  const baseMg    = ((item.mg_kg_min + item.mg_kg_max) / 2) * pesoKg
+  const perDoseMg = isDailyDose(item.nota_dosis)
+    ? baseMg / dosesPerDay(item.nota_dosis)
+    : baseMg  // ya es por toma
+
+  return mgToUnits(perDoseMg, item.concentracion || '', item.forma || '')
+}
+
 export default function NuevaPrescripcionPage() {
   return (
     <Suspense>
@@ -62,6 +130,12 @@ function NuevaPrescripcionContent() {
     vigencia_dias: '30',
   })
   const [medicamentos, setMedicamentos] = useState([emptyMed()])
+  const [pesoKg, setPesoKg] = useState('')
+
+  // Detección de paciente pediátrico
+  const patientAge = selectedPatient?.fecha_nacimiento ? calcAge(selectedPatient.fecha_nacimiento) : null
+  const isPediatric = patientAge !== null && patientAge < 18
+  const peso = parseFloat(pesoKg) || 0
 
   // Load patient name when pre-filled from URL
   useEffect(() => {
@@ -73,7 +147,7 @@ function NuevaPrescripcionContent() {
       .catch(() => {})
   }, [])
 
-  // Pre-llenar instrucciones con el plan_tratamiento de la consulta
+  // Pre-llenar instrucciones con el diagnóstico de la consulta
   useEffect(() => {
     const consultaId = searchParams.get('consulta_id')
     if (!consultaId) return
@@ -85,24 +159,64 @@ function NuevaPrescripcionContent() {
         .single()
         .then(({ data }) => {
           if (!data) return
-          setForm(f => ({
-            ...f,
-            instrucciones: data.diagnostico || '',
-          }))
+          setForm(f => ({ ...f, instrucciones: data.diagnostico || '' }))
         })
     })
   }, [])
 
   function setForm2(field) { return e => setForm(f => ({ ...f, [field]: e.target.value })) }
   function setMed(i, field) { return e => setMedicamentos(ms => ms.map((m, j) => j === i ? { ...m, [field]: e.target.value } : m)) }
+  function updateMed(i, updates) { setMedicamentos(ms => ms.map((m, j) => j === i ? { ...m, ...updates } : m)) }
+
+  // Cuando el médico cambia la concentración manualmente, recalcular la dosis si hay datos mg/kg
+  function handleConcChange(i, value) {
+    setMedicamentos(ms => ms.map((m, j) => {
+      if (j !== i) return m
+      const updated = { ...m, concentracion: value }
+      if (isPediatric && peso > 0 && m._mgKgMin != null) {
+        const item = { mg_kg_min: m._mgKgMin, mg_kg_max: m._mgKgMax, nota_dosis: m._notaDosis, concentracion: value, forma: m.forma }
+        updated.dosis = calcDosisPorToma(item, peso) ?? formatDosis(((m._mgKgMin + m._mgKgMax) / 2) * peso)
+      }
+      return updated
+    }))
+  }
   function addMed() { setMedicamentos(ms => [...ms, emptyMed()]) }
   function removeMed(i) { setMedicamentos(ms => ms.filter((_, j) => j !== i)) }
+
+  // Cuando el médico selecciona un medicamento del catálogo
+  function handleMedSelect(i, item) {
+    const updates = {
+      nombre:      item.nombre,
+      _mgKgMin:    item.mg_kg_min  ?? null,
+      _mgKgMax:    item.mg_kg_max  ?? null,
+      _notaDosis:  item.nota_dosis ?? null,
+    }
+    if (item.concentracion) updates.concentracion = item.concentracion
+    if (item.forma)         updates.forma = item.forma
+    if (isPediatric && peso > 0 && item.mg_kg_min != null) {
+      updates.dosis = calcDosisPorToma(item, peso) ?? formatDosis(((item.mg_kg_min + item.mg_kg_max) / 2) * peso)
+    }
+    updateMed(i, updates)
+  }
+
+  // Recalcular dosis cuando cambia el peso (solo meds con datos mg/kg)
+  useEffect(() => {
+    if (!isPediatric || peso <= 0) return
+    setMedicamentos(ms => ms.map(m => {
+      if (m._mgKgMin == null) return m
+      const item = { mg_kg_min: m._mgKgMin, mg_kg_max: m._mgKgMax, nota_dosis: m._notaDosis, concentracion: m.concentracion, forma: m.forma }
+      return { ...m, dosis: calcDosisPorToma(item, peso) ?? formatDosis(((m._mgKgMin + m._mgKgMax) / 2) * peso) }
+    }))
+  }, [pesoKg]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave(e) {
     e.preventDefault()
     if (!form.paciente_id) { setError('Selecciona un paciente'); return }
     const desdeConsulta = !!searchParams.get('consulta_id')
-    const medsValidos = medicamentos.filter(m => m.nombre.trim())
+    // Limpiar campos internos (_) antes de enviar al API
+    const medsValidos = medicamentos
+      .filter(m => m.nombre.trim())
+      .map(({ _mgKgMin, _mgKgMax, _notaDosis, ...rest }) => rest)
     if (!desdeConsulta && medsValidos.length === 0) { setError('Agrega al menos un medicamento'); return }
     setError('')
     setSaving(true)
@@ -117,19 +231,27 @@ function NuevaPrescripcionContent() {
 
     if (!res.ok) { setError(json.error || 'Error al guardar'); return }
 
+    // Guardar nombres nuevos en el catálogo (en segundo plano)
+    const nombresNuevos = medsValidos.map(m => m.nombre.trim()).filter(Boolean)
+    Promise.allSettled(nombresNuevos.map(nombre =>
+      fetch('/api/catalogo-medicamentos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre }),
+      })
+    )).catch(() => {})
+
     // Auto-print PDF
     try {
       const { data: rx } = json
-      const paciente = selectedPatient
       const { createClient } = await import('@/lib/supabase/client')
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       const { data: medico } = await supabase.from('perfiles').select('*').eq('id', user.id).single()
-      // Fetch fresh config (bypass hook cache) to ensure logo URL is current
       const configRes = await fetch('/api/configuracion')
       const { data: freshConfig } = await configRes.json()
       const { generarPrescripcionPDF } = await import('@/lib/pdf-prescripcion')
-      await generarPrescripcionPDF({ ...rx, medicamentos }, paciente || {}, medico || {}, freshConfig || {})
+      await generarPrescripcionPDF({ ...rx, medicamentos }, selectedPatient || {}, medico || {}, freshConfig || {})
     } catch (pdfErr) {
       console.error('PDF error:', pdfErr)
     }
@@ -145,7 +267,7 @@ function NuevaPrescripcionContent() {
         </Link>
 
         <form onSubmit={handleSave} className="space-y-5">
-          {/* Header */}
+          {/* Datos generales */}
           <Card>
             <CardHeader><h2 className="font-semibold text-gray-800">Datos generales</h2></CardHeader>
             <CardBody className="space-y-4">
@@ -157,6 +279,7 @@ function NuevaPrescripcionContent() {
                 onSelect={p => {
                   setSelectedPatient(p)
                   setForm(f => ({ ...f, paciente_id: p?.id || '' }))
+                  setPesoKg('')
                 }}
                 disabled={!!searchParams.get('paciente_id')}
               />
@@ -169,10 +292,36 @@ function NuevaPrescripcionContent() {
                   onChange={setForm2('vigencia_dias')}
                 />
               </div>
+
+              {/* Badge pediátrico + peso */}
+              {isPediatric && (
+                <div className="flex items-center gap-4 p-3 bg-sky-50 rounded-xl border border-sky-100">
+                  <span className="text-xs text-sky-700 font-medium flex-shrink-0">
+                    Paciente pediátrico · {patientAge} {patientAge === 1 ? 'año' : 'años'}
+                  </span>
+                  <div className="w-36">
+                    <Input
+                      label="Peso (kg)"
+                      type="number"
+                      min="0.5"
+                      max="150"
+                      step="0.1"
+                      placeholder="12.5"
+                      value={pesoKg}
+                      onChange={e => setPesoKg(e.target.value)}
+                    />
+                  </div>
+                  {peso === 0 && (
+                    <p className="text-xs text-sky-600 flex-1">
+                      Ingresa el peso para calcular dosis automáticamente
+                    </p>
+                  )}
+                </div>
+              )}
             </CardBody>
           </Card>
 
-          {/* Medications */}
+          {/* Medicamentos */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -195,18 +344,18 @@ function NuevaPrescripcionContent() {
                     </button>
                   )}
                   <div className="grid grid-cols-2 gap-3">
-                    <Input
+                    <MedicamentosCombobox
                       label={`Medicamento ${i + 1}`}
-                      placeholder="Metformina"
                       required
                       value={med.nombre}
-                      onChange={setMed(i, 'nombre')}
+                      onTextChange={nombre => updateMed(i, { nombre })}
+                      onSelect={item => handleMedSelect(i, item)}
                     />
                     <Input
                       label="Concentración"
                       placeholder="500 mg"
                       value={med.concentracion}
-                      onChange={setMed(i, 'concentracion')}
+                      onChange={e => handleConcChange(i, e.target.value)}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -216,12 +365,38 @@ function NuevaPrescripcionContent() {
                       onChange={setMed(i, 'forma')}
                       options={FORMAS}
                     />
-                    <Input
-                      label="Dosis"
-                      placeholder="1 tableta"
-                      value={med.dosis}
-                      onChange={setMed(i, 'dosis')}
-                    />
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        label="Dosis"
+                        placeholder={isPediatric && peso > 0 ? 'Se calcula al elegir med.' : '1 tableta'}
+                        value={med.dosis}
+                        onChange={setMed(i, 'dosis')}
+                      />
+                      {/* Hint de cálculo pediátrico */}
+                      {isPediatric && med._mgKgMin != null && peso > 0 && (() => {
+                        const item      = { mg_kg_min: med._mgKgMin, mg_kg_max: med._mgKgMax, nota_dosis: med._notaDosis, concentracion: med.concentracion, forma: med.forma }
+                        const baseMg    = ((med._mgKgMin + med._mgKgMax) / 2) * peso
+                        const esDialia  = isDailyDose(med._notaDosis)
+                        const perDoseMg = esDialia ? baseMg / dosesPerDay(med._notaDosis) : baseMg
+                        const porToma   = calcDosisPorToma(item, peso)
+                        const mgLabel   = med._mgKgMin === med._mgKgMax ? `${med._mgKgMin}` : `${med._mgKgMin}–${med._mgKgMax}`
+                        return (
+                          <p className="text-xs text-sky-600 leading-snug">
+                            {esDialia
+                              ? <>Ref: {mgLabel} mg/kg × {peso} kg = <strong>{formatDosis(baseMg)}/día</strong> → <strong>{porToma}</strong> por toma</>
+                              : <>Ref: {mgLabel} mg/kg × {peso} kg = <strong>{porToma}</strong> por toma</>
+                            }
+                            {med._notaDosis && <span className="text-gray-400"> · {med._notaDosis}</span>}
+                          </p>
+                        )
+                      })()}
+                      {isPediatric && med._mgKgMin != null && peso === 0 && (
+                        <p className="text-xs text-amber-500">Ingresa el peso para calcular la dosis</p>
+                      )}
+                      {isPediatric && med._mgKgMin == null && med.nombre && peso > 0 && (
+                        <p className="text-xs text-gray-400">Sin datos mg/kg — ingresa la dosis manualmente</p>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <Select
@@ -248,7 +423,7 @@ function NuevaPrescripcionContent() {
             </CardBody>
           </Card>
 
-          {/* Instructions */}
+          {/* Instrucciones generales */}
           <Card>
             <CardHeader><h2 className="font-semibold text-gray-800">Instrucciones generales</h2></CardHeader>
             <CardBody>
